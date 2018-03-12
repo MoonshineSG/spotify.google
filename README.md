@@ -59,7 +59,7 @@ sudo systemctl start spotify
 ```
 
 
-#### Remote control
+#### IR Receiver
 
 The command map file for `lirc` (`/etc/lirc/lircrc`):
 
@@ -103,6 +103,9 @@ end
 
 Where `SPOTIFY_*` buttons are as recorded in the `lircd.conf` file (`irrecord --disable-namespace -d /dev/lirc0  /etc/lirc/lircd.conf`)
 
+#### Remote control
+
+Setup a new device and a new activity, thne configure the buttons as usual.
 
 ### Donate
 
