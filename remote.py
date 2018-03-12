@@ -167,7 +167,7 @@ def handle_error(e, callback, retry):
 
 		spotify_client = spotipy.client.Spotify(auth=new_token['access_token'])
 		handled = True
-	elif error.endswith("Device not found") or error.endswith("'denon' is not defined"):
+	elif error.endswith("Device not found") or error.endswith("'%s' is not defined"%chromecast):
 		app.logger.info("Device not found. Refreshing...")
 		getChromecast()
 		handled = True
