@@ -19,6 +19,7 @@ Login to the `https://developer.spotify.com` and create a new application. Remem
 #name of the chromecast device
 chromecast = "your_chromecast_name"
 chromecast_ip = "x.x.x.x"
+volume = 0.8
 
 #spotify_client credentials 
 username = "your_spotify_user_name"

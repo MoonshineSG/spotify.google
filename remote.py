@@ -15,9 +15,10 @@ from pychromecast.controllers import BaseController
 from flask import Flask, jsonify
 
 # ================================================================================================================ CONFIGURATION
-from config import *
 
-scope = "streaming user-read-currently-playing user-read-recently-played user-modify-playback-state user-read-playback-state"
+from config import *  
+
+scope = 'streaming user-read-currently-playing user-read-recently-played user-modify-playback-state user-read-playback-state'
 cache_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), ".cache-%s"%username)
 
 # ================================================================================================================ SETUP
@@ -123,6 +124,7 @@ def activate():
 	app.logger.info("Activating Spotify on ChromeCast ...")
 	chromecast = pychromecast.Chromecast(chromecast_ip)
 	chromecast.wait()
+	chromecast.set_volume(volume)
 	spotify_controller = SpotifyController()
 	chromecast.register_handler(spotify_controller)
 
@@ -130,6 +132,10 @@ def activate():
 	spotify_controller.login() #login Spotify on Chromecast
 	
 	device_id = spotify_controller.wait() #wait for the login sequence which returns the device ID
+	
+	app.logger.debug(chromecast.device)
+	app.logger.debug(chromecast.status)
+	
 	chromecast.disconnect(blocking=False)
 	
 	return device_id
@@ -142,11 +148,11 @@ def getChromecast():
 		for device in devices['devices']:
 			if device['name'] == chromecast: #in case multiple devices are available
 				denon = device['id']
-				app.logger.info("Active ChromeCast: %s" ,denon)
+				app.logger.info("ChromeCast active Spotify ID: %s", denon)
 				return denon
 	app.logger.info("Spotify not on ChromeCast. Activating...")
 	denon = activate()
-	app.logger.debug("Activated ChromeCast ID: %s", denon)
+	app.logger.debug("ChromeCast active Spotify ID: %s", denon)
 	return denon
 
 # ================================================================================================================ ERROR HANDLER
@@ -220,7 +226,7 @@ def next_track():
 @app.route('/on')
 def power_on():
 	try:
-		spotify_client.transfer_playback( getChromecast(), False )
+		spotify_client.transfer_playback( getChromecast(), force_play=False)
 	except spotipy.client.SpotifyException as e:
 		handle_error(e, power_on)
 		return "RETRY\n"
