@@ -104,3 +104,7 @@ end
 Where `SPOTIFY_*` buttons are as recorded in the `lircd.conf` file (`irrecord --disable-namespace -d /dev/lirc0  /etc/lirc/lircd.conf`)
 
 
+### Donate
+
+Accepting [beer tips](https://paypal.me/ovidiuhossu)...
+
