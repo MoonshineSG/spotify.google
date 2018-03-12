@@ -72,12 +72,10 @@ class Token():
 			browser_session.get(GOTO[2], headers=headers)
 			self.__value__ = browser_session.cookies['wp_access_token']
 		
-			self.status.set() #unlock 
 		except Exception as e:
 			app.logger.error(e)
-			#try again in 15 seconds
-			threading.Timer(15, self.fetch).start()
 		
+		self.status.set() #unlock
 		app.logger.info ("wp_access_token fetch took [%s] seconds", ( time.time() - start_time ))
 
 	@property
@@ -156,9 +154,11 @@ def getChromecast():
 	return denon
 
 # ================================================================================================================ ERROR HANDLER
-def handle_error(e, callback):
-	app.logger.debug(e)
-	if e.msg.endswith("The access token expired"):
+def handle_error(e, callback, retry):
+	error = str(e)
+	app.logger.debug(error)
+	handled = False
+	if error.endswith("The access token expired"):
 		global spotify_client
 		app.logger.info("The access token expired. Get new one...")
 
@@ -166,23 +166,26 @@ def handle_error(e, callback):
 		app.logger.debug("new_token: %s", new_token)
 
 		spotify_client = spotipy.client.Spotify(auth=new_token['access_token'])
-
-	elif e.msg.endswith("Device not found"):
+		handled = True
+	elif error.endswith("Device not found") or error.endswith("'denon' is not defined"):
 		app.logger.info("Device not found. Refreshing...")
 		getChromecast()
-	elif e.msg.endswith("Already paused"):
+		handled = True
+	elif error.endswith("Already paused"):
 		app.logger.info("Already paused")
 		return
-	elif e.msg.endswith("Not paused"):
+	elif error.endswith("Not paused"):
 		app.logger.info("Not paused")
 		return
 
-	if callable(callback):
-		callback()
+	if retry < 3 and handled and callable(callback):
+		retry += 1 
+		app.logger.debug("*** Retry [%s]"%retry)
+		callback(retry)
 
 # ================================================================================================================ ROUTES	
 @app.route('/play')
-def play():
+def play(retry = 0):
 	try:
 		if spotify_client.currently_playing():
 			spotify_client.start_playback(device_id = denon)
@@ -191,44 +194,44 @@ def play():
 			last = recents['items'][0]['track']['album']['uri']
 			if last:
 				spotify_client.start_playback(device_id = denon, context_uri = last)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, play)
+	except Exception as e:
+		handle_error(e, play, retry)
 		return "RETRY\n"
 	return "OK\n"
 
 @app.route('/pause')
-def pause():
+def pause(retry = 0):
 	try:
 		spotify_client.pause_playback(denon)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, pause)
+	except Exception as e:
+		handle_error(e, pause, retry)
 		return "RETRY\n"
 	return "OK\n"
 
 @app.route('/previous')
-def previous_track():
+def previous_track(retry = 0):
 	try:
 		spotify_client.previous_track(denon)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, previous_track)
+	except Exception as e:
+		handle_error(e, previous_track, retry)
 		return "RETRY\n"
 	return "OK\n"
 
 @app.route('/next')
-def next_track():
+def next_track(retry = 0):
 	try:
 		spotify_client.next_track(denon)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, next_track)
+	except Exception as e:
+		handle_error(e, next_track, retry)
 		return "RETRY\n"
 	return "OK\n"
 
 @app.route('/on')
-def power_on():
+def power_on(retry = 0):
 	try:
 		spotify_client.transfer_playback( getChromecast(), force_play=False)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, power_on)
+	except Exception as e:
+		handle_error(e, power_on, retry)
 		return "RETRY\n"
 	return "OK\n"
 
@@ -247,34 +250,34 @@ def reboot():
 
 # ================================================================================================================ Testing
 @app.route('/devices')
-def devices():
+def devices(retry = 0):
 	try:
 		return jsonify(spotify_client.devices())
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, devices)
+	except Exception as e:
+		handle_error(e, devices, retry)
 		return "RETRY\n"
 
 @app.route('/now')
-def now():
+def now(retry = 0):
 	try:
 		playing =  spotify_client.currently_playing()
 		if playing:
 			return jsonify(playing['item'])
 		else:
 			return "NONE\n"
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, now)
+	except Exception as e:
+		handle_error(e, now, retry)
 		return "RETRY\n"
 		
 @app.route('/recent')
-def recent():
+def recent(retry = 0):
 	try:
 		result = []
 		for item in spotify_client.current_user_recently_played()['items']:
 			result.append(item['track']['album']['external_urls']['spotify'])
 		return jsonify(result)
-	except spotipy.client.SpotifyException as e:
-		handle_error(e, recent)
+	except Exception as e:
+		handle_error(e, recent, retry)
 		return "RETRY\n"
 
 @app.route('/status')
