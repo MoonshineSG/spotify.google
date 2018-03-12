@@ -61,8 +61,7 @@ class Token():
 		
 	def fetch(self):
 		start_time = time.time()
-		
-		self.status.clear() #lock
+
 		try:
 			GOTO = ["https://accounts.spotify.com/en/login", "https://accounts.spotify.com/api/login", "https://open.spotify.com/browse"]
 		
@@ -83,9 +82,6 @@ class Token():
 			browser_session.get(GOTO[2], headers=headers)
 			self.__value__ = browser_session.cookies['wp_access_token']
 		
-			#fetch new token when this one expire
-			threading.Timer(int(browser_session.cookies['wp_expires_in']), self.fetch).start()
-			
 			self.status.set() #unlock 
 		except Exception as e:
 			app.logger.error(e)
@@ -96,9 +92,9 @@ class Token():
 
 	@property
 	def value(self):
-		app.logger.debug ( "Waiting for wp_access_token (token.value)" )
+		app.logger.debug ( "Waiting for wp_access_token..." )
 		self.status.wait() #wait for lock
-		app.logger.debug ( "Requested wp_access_token (token.value)" )
+		app.logger.debug ( "Received wp_access_token [%s]", self.__value__)
 		return self.__value__
 
 # ================================================================================================================ pychromecast
@@ -107,6 +103,7 @@ class SpotifyController(BaseController):
 		super(SpotifyController, self).__init__(
 			"urn:x-cast:com.spotify.chromecast.secure.v1", 'CC32E753')
 		self.device = None
+		self.web_token = Token()
 		self.waiting = threading.Event()
 
 	def receive_message(self, message, data):
@@ -126,7 +123,7 @@ class SpotifyController(BaseController):
 		self.waiting.clear()
 		while not self.is_active:
 			time.sleep(0.1)
-		self.send_message({'type': 'setCredentials', 'credentials': web_token.value })
+		self.send_message({'type': 'setCredentials', 'credentials': self.web_token.value })
 
 	def wait(self, timeout=None):
 		self.waiting.wait(timeout=timeout)
@@ -140,15 +137,13 @@ def activate():
 	spotify_controller = SpotifyController()
 	chromecast.register_handler(spotify_controller)
 
-	spotify_controller.launch() #start Spotify on Chromecast
+	spotify_controller.launch() #start Spotify on Chromecast	
+	spotify_controller.login() #login Spotify on Chromecast
 	
-	if web_token.value: #make sure 'wp_access_token' has been retrieved
-		spotify_controller.login() #login Spotify on Chromecast
-		
-		device_id = spotify_controller.wait() #wait for the login sequence which returns the device ID
-		chromecast.disconnect(blocking=False)
-		
-		return device_id
+	device_id = spotify_controller.wait() #wait for the login sequence which returns the device ID
+	chromecast.disconnect(blocking=False)
+	
+	return device_id
 			
 def getChromecast():
 	global denon	
@@ -309,8 +304,6 @@ def internal_server_error(e):
 	return "SERVER ERROR\n", 500
 
 # ================================================================================================================ INITIALIZE
-
-web_token = Token()	
 
 oath = SpotifyOAuth(client_id, client_secret, redirect_uri, scope=scope, cache_path=cache_path)
 
