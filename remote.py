@@ -139,19 +139,19 @@ def activate():
 	return device_id
 			
 def getChromecast():
-	global denon	
+	global chromecast_id	
 	devices = spotify_client.devices()
 	if devices:
 		app.logger.debug(devices)
 		for device in devices['devices']:
 			if device['name'] == chromecast: #in case multiple devices are available
-				denon = device['id']
-				app.logger.info("ChromeCast active Spotify ID: %s", denon)
-				return denon
+				chromecast_id = device['id']
+				app.logger.info("ChromeCast active Spotify ID: %s", chromecast_id)
+				return chromecast_id
 	app.logger.info("Spotify not on ChromeCast. Activating...")
-	denon = activate()
-	app.logger.debug("ChromeCast active Spotify ID: %s", denon)
-	return denon
+	chromecast_id = activate()
+	app.logger.debug("ChromeCast active Spotify ID: %s", chromecast_id)
+	return chromecast_id
 
 # ================================================================================================================ ERROR HANDLER
 def handle_error(e, callback, retry):
@@ -188,12 +188,12 @@ def handle_error(e, callback, retry):
 def play(retry = 0):
 	try:
 		if spotify_client.currently_playing():
-			spotify_client.start_playback(device_id = denon)
+			spotify_client.start_playback(device_id = chromecast_id)
 		else:
 			recents = spotify_client.current_user_recently_played(1)
 			last = recents['items'][0]['track']['album']['uri']
 			if last:
-				spotify_client.start_playback(device_id = denon, context_uri = last)
+				spotify_client.start_playback(device_id = chromecast_id, context_uri = last)
 	except Exception as e:
 		handle_error(e, play, retry)
 		return "RETRY\n"
@@ -202,7 +202,7 @@ def play(retry = 0):
 @app.route('/pause')
 def pause(retry = 0):
 	try:
-		spotify_client.pause_playback(denon)
+		spotify_client.pause_playback(chromecast_id)
 	except Exception as e:
 		handle_error(e, pause, retry)
 		return "RETRY\n"
@@ -211,7 +211,7 @@ def pause(retry = 0):
 @app.route('/previous')
 def previous_track(retry = 0):
 	try:
-		spotify_client.previous_track(denon)
+		spotify_client.previous_track(chromecast_id)
 	except Exception as e:
 		handle_error(e, previous_track, retry)
 		return "RETRY\n"
@@ -220,7 +220,7 @@ def previous_track(retry = 0):
 @app.route('/next')
 def next_track(retry = 0):
 	try:
-		spotify_client.next_track(denon)
+		spotify_client.next_track(chromecast_id)
 	except Exception as e:
 		handle_error(e, next_track, retry)
 		return "RETRY\n"
