@@ -15,18 +15,7 @@ from pychromecast.controllers import BaseController
 from flask import Flask, jsonify
 
 # ================================================================================================================ CONFIGURATION
-#name of the chromecast device
-chromecast = ""
-chromecast_ip =""
-
-#spotify_client credentials 
-username = ""
-password = ""
-
-#Application 
-client_id = ""
-client_secret = ""
-redirect_uri = ""
+from config import *
 
 scope = "streaming user-read-currently-playing user-read-recently-played user-modify-playback-state user-read-playback-state"
 cache_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), ".cache-%s"%username)

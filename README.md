@@ -11,9 +11,9 @@ Using `sudo easy_install3 ...` doesn't work as it retrieves an older version. (w
 
 Login to the `https://developer.spotify.com` and create a new application. Remember `client_id`, `client_secret` and `redirect_uri`.
 
-- copy remote.py to /spotify.google/ (or other folder) then make it executable
+- copy `remote.py` and `config.py` to /spotify.google/ (or other folder) then make it executable
 
-- fill all the required credentials:
+- update `config.py` with all the required credentials:
 
 ```
 #name of the chromecast device
