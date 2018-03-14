@@ -80,7 +80,7 @@ class Token():
 	@property
 	def value(self):
 		app.logger.debug ( "Waiting for wp_access_token..." )
-		self.status.wait() #wait for lock
+		self.status.wait(10) #wait for lock
 		app.logger.debug ( "Received wp_access_token [%s]", self.__value__)
 		return self.__value__
 
@@ -112,8 +112,8 @@ class SpotifyController(BaseController):
 			time.sleep(0.1)
 		self.send_message({'type': 'setCredentials', 'credentials': self.web_token.value })
 
-	def wait(self, timeout=None):
-		self.waiting.wait(timeout=timeout)
+	def wait(self):
+		self.waiting.wait(15)
 		return self.device
 
 # ================================================================================================================ SCRIPING 
@@ -158,7 +158,7 @@ def getChromecast():
 # ================================================================================================================ ERROR HANDLER
 def handle_error(e, callback, retry):
 	error = str(e)
-	app.logger.debug(error)
+	app.logger.debug("handle_error: %s",  error)
 	handled = False
 	if error.endswith("The access token expired"):
 		global spotify_client
@@ -195,10 +195,12 @@ def play(retry = 3):
 		if spotify_client.currently_playing():
 			spotify_client.start_playback(device_id = chromecast_id)
 		else:
-			recents = spotify_client.current_user_recently_played(1)
-			last = recents['items'][0]['track']['album']['uri']
-			if last:
-				spotify_client.start_playback(device_id = chromecast_id, context_uri = last)
+			try:
+				recents = spotify_client.current_user_recently_played(1)
+				spotify_client.start_playback(device_id = chromecast_id, context_uri = recents['items'][0]['track']['album']['uri'])
+			except: #brand new user ?  
+				return "EMPTY\n"
+
 	except Exception as e:
 		return handle_error(e, play, retry)
 	return "OK\n"
