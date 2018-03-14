@@ -22,14 +22,15 @@ chromecast_ip = "x.x.x.x"
 volume = 0.8
 
 #spotify_client credentials 
-username = "your_spotify_user_name"
-password = "your_spotify_password"
+accounts = {"":{"username":"", "password":""}}
 
 #Application
 client_id = "as_created_above"
 client_secret = "as_created_above"
 redirect_uri = "as_created_above"
 ```
+
+- give your account a short name and you is later in the `login` url. ex: `accounts = {"john":{"username":"john_spotify@gmail.com", "password":"73847893497389478389479374892398"}}` becomes `http://127.0.0.1:9999/login/john`
 
 - run it once from terminal and follow instructions to activate/authorize Spotify.
 
@@ -88,7 +89,7 @@ end
 begin
 prog = irexec
 button = SPOTIFY_ON
-config = curl http://127.0.0.1:9999/on
+config = curl http://127.0.0.1:9999/login/john
 end
 begin
 prog = irexec

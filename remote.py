@@ -12,14 +12,13 @@ from spotipy.oauth2 import SpotifyOAuth
 import pychromecast
 from pychromecast.controllers import BaseController
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, abort
 
 # ================================================================================================================ CONFIGURATION
 
 from config import *  
 
-scope = 'streaming user-read-currently-playing user-read-recently-played user-modify-playback-state user-read-playback-state'
-cache_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), ".cache-%s"%username)
+scope = "user-read-currently-playing user-read-recently-played user-modify-playback-state user-read-playback-state"
 
 # ================================================================================================================ SETUP
 log_level = logging.DEBUG
@@ -47,9 +46,9 @@ class Token():
 	def __init__(self):
 		self.__value__ = None
 		self.status = threading.Event()
-		threading.Thread(target=self.fetch).start() #run in parallel
+		threading.Thread(target=self.__fetch__).start() #run in parallel
 		
-	def fetch(self):
+	def __fetch__(self):
 		start_time = time.time()
 
 		try:
@@ -120,7 +119,9 @@ class SpotifyController(BaseController):
 # ================================================================================================================ SCRIPING 
 def activate():
 	app.logger.info("Activating Spotify on ChromeCast ...")
+	
 	chromecast = pychromecast.Chromecast(chromecast_ip)
+	
 	chromecast.wait()
 	chromecast.set_volume(volume)
 	spotify_controller = SpotifyController()
@@ -139,7 +140,7 @@ def activate():
 	return device_id
 			
 def getChromecast():
-	global chromecast_id	
+	global chromecast_id
 	devices = spotify_client.devices()
 	if devices:
 		app.logger.debug(devices)
@@ -151,6 +152,7 @@ def getChromecast():
 	app.logger.info("Spotify not on ChromeCast. Activating...")
 	chromecast_id = activate()
 	app.logger.debug("ChromeCast active Spotify ID: %s", chromecast_id)
+	app.logger.debug(spotify_client.current_user())
 	return chromecast_id
 
 # ================================================================================================================ ERROR HANDLER
@@ -167,10 +169,13 @@ def handle_error(e, callback, retry):
 
 		spotify_client = spotipy.client.Spotify(auth=new_token['access_token'])
 		handled = True
-	elif error.endswith("Device not found") or error.endswith("'%s' is not defined"%chromecast):
+	elif error.endswith("Device not found"):
 		app.logger.info("Device not found. Refreshing...")
 		getChromecast()
 		handled = True
+	elif error.endswith("Could not connect to %s:8009"%chromecast_ip):
+		app.logger.info("Device offline?? ")
+		return
 	elif error.endswith("Already paused"):
 		app.logger.info("Already paused")
 		return
@@ -178,14 +183,14 @@ def handle_error(e, callback, retry):
 		app.logger.info("Not paused")
 		return
 
-	if retry < 3 and handled and callable(callback):
-		retry += 1 
+	if retry > 0 and handled and callable(callback):
+		retry -= 1 
 		app.logger.debug("*** Retry [%s]"%retry)
 		callback(retry)
 
 # ================================================================================================================ ROUTES	
 @app.route('/play')
-def play(retry = 0):
+def play(retry = 3):
 	try:
 		if spotify_client.currently_playing():
 			spotify_client.start_playback(device_id = chromecast_id)
@@ -200,7 +205,7 @@ def play(retry = 0):
 	return "OK\n"
 
 @app.route('/pause')
-def pause(retry = 0):
+def pause(retry = 3):
 	try:
 		spotify_client.pause_playback(chromecast_id)
 	except Exception as e:
@@ -209,7 +214,7 @@ def pause(retry = 0):
 	return "OK\n"
 
 @app.route('/previous')
-def previous_track(retry = 0):
+def previous_track(retry = 3):
 	try:
 		spotify_client.previous_track(chromecast_id)
 	except Exception as e:
@@ -218,7 +223,7 @@ def previous_track(retry = 0):
 	return "OK\n"
 
 @app.route('/next')
-def next_track(retry = 0):
+def next_track(retry = 3):
 	try:
 		spotify_client.next_track(chromecast_id)
 	except Exception as e:
@@ -226,12 +231,14 @@ def next_track(retry = 0):
 		return "RETRY\n"
 	return "OK\n"
 
-@app.route('/on')
-def power_on(retry = 0):
+# ================================================================================================================ Login free
+@app.route('/login/<account>')
+def login(account, retry = 3):	
 	try:
-		spotify_client.transfer_playback( getChromecast(), force_play=False)
+		if login(account):
+			spotify_client.transfer_playback( getChromecast(), force_play=False)
 	except Exception as e:
-		handle_error(e, power_on, retry)
+		handle_error(e, login, retry)
 		return "RETRY\n"
 	return "OK\n"
 
@@ -250,7 +257,7 @@ def reboot():
 
 # ================================================================================================================ Testing
 @app.route('/devices')
-def devices(retry = 0):
+def devices(retry = 3):
 	try:
 		return jsonify(spotify_client.devices())
 	except Exception as e:
@@ -258,7 +265,7 @@ def devices(retry = 0):
 		return "RETRY\n"
 
 @app.route('/now')
-def now(retry = 0):
+def now(retry = 3):
 	try:
 		playing =  spotify_client.currently_playing()
 		if playing:
@@ -270,7 +277,7 @@ def now(retry = 0):
 		return "RETRY\n"
 		
 @app.route('/recent')
-def recent(retry = 0):
+def recent(retry = 3):
 	try:
 		result = []
 		for item in spotify_client.current_user_recently_played()['items']:
@@ -301,22 +308,47 @@ def internal_server_error(e):
 	app.logger.error(e)
 	return "SERVER ERROR\n", 500
 
+@app.errorhandler(401)
+def internal_server_error(e):
+	app.logger.error(e)
+	return "LOGIN FIRST\n", 401
+
+@app.before_request
+def before_request():
+	_abort_ = False
+	try:
+		if spotify_client == None or chromecast_id == None or oath == None: 
+			_abort_ = True
+	except NameError:
+		_abort_ = True
+	
+	app.logger.debug(request.endpoint)
+	if _abort_ and request.endpoint not in ['login', 'power_off', 'reboot']:
+		abort(401)
+
 # ================================================================================================================ INITIALIZE
+def login(account):
+	global spotify_client, oath, username, password, cached_token
+	username = accounts[account]["username"]
+	password = accounts[account]["password"]
 
-oath = SpotifyOAuth(client_id, client_secret, redirect_uri, scope=scope, cache_path=cache_path)
+	cache_path=os.path.join(os.path.dirname(os.path.realpath(__file__)), ".cache-%s"%username)
 
-cached_token = oath.get_cached_token()
-app.logger.debug("cached_token: %s", cached_token)
-if cached_token:
-	spotify_client = spotipy.client.Spotify(auth=cached_token['access_token'])
-	app.logger.debug(spotify_client.current_user())
-else:
-	app.logger.info("SpotifyToken can't be found. Running *** interactive **** OATH2 flow to approve application.")
-	if sys.stdin.isatty():
-		util.prompt_for_user_token( username, scope, client_id, client_secret, redirect_uri, cache_path )
+	oath = SpotifyOAuth(client_id, client_secret, redirect_uri, scope=scope, cache_path=cache_path)
+
+	cached_token = oath.get_cached_token()
+	app.logger.debug("cached_token: %s", cached_token)
+	if cached_token:
+		spotify_client = spotipy.client.Spotify(auth=cached_token['access_token'])
+		app.logger.debug(spotify_client.current_user())
 	else:
-		app.logger.error("You must run this via a terminal, at least once.")
-	exit()	
+		app.logger.info("SpotifyToken can't be found. Running *** interactive **** OATH2 flow to approve application.")
+		if sys.stdin.isatty():
+			util.prompt_for_user_token( username, scope, client_id, client_secret, redirect_uri, cache_path )
+		else:
+			app.logger.error("You must run this via a terminal, at least once.")
+		exit()	
+	return True
 	
 # ================================================================================================================ START
 try:
