@@ -175,18 +175,18 @@ def handle_error(e, callback, retry):
 		handled = True
 	elif error.endswith("Could not connect to %s:8009"%chromecast_ip):
 		app.logger.info("Device offline?? ")
-		return
+		return "OFFLINE"
 	elif error.endswith("Already paused"):
 		app.logger.info("Already paused")
-		return
+		return "OK"
 	elif error.endswith("Not paused"):
 		app.logger.info("Not paused")
-		return
+		return "OK"
 
 	if retry > 0 and handled and callable(callback):
 		retry -= 1 
-		app.logger.debug("*** Retry [%s]"%retry)
-		callback(retry)
+		app.logger.debug("*** Retrying [%s]"%retry)
+		return callback(retry)
 
 # ================================================================================================================ ROUTES	
 @app.route('/play')
@@ -200,8 +200,7 @@ def play(retry = 3):
 			if last:
 				spotify_client.start_playback(device_id = chromecast_id, context_uri = last)
 	except Exception as e:
-		handle_error(e, play, retry)
-		return "RETRY\n"
+		return handle_error(e, play, retry)
 	return "OK\n"
 
 @app.route('/pause')
@@ -209,8 +208,7 @@ def pause(retry = 3):
 	try:
 		spotify_client.pause_playback(chromecast_id)
 	except Exception as e:
-		handle_error(e, pause, retry)
-		return "RETRY\n"
+		return handle_error(e, pause, retry)
 	return "OK\n"
 
 @app.route('/previous')
@@ -218,8 +216,7 @@ def previous_track(retry = 3):
 	try:
 		spotify_client.previous_track(chromecast_id)
 	except Exception as e:
-		handle_error(e, previous_track, retry)
-		return "RETRY\n"
+		return handle_error(e, previous_track, retry)
 	return "OK\n"
 
 @app.route('/next')
@@ -227,19 +224,18 @@ def next_track(retry = 3):
 	try:
 		spotify_client.next_track(chromecast_id)
 	except Exception as e:
-		handle_error(e, next_track, retry)
-		return "RETRY\n"
+		return handle_error(e, next_track, retry)
 	return "OK\n"
 
 # ================================================================================================================ Login free
+@app.route('/login')
 @app.route('/login/<account>')
-def login(account, retry = 3):	
+def login(account = "default", retry = 3):	
 	try:
-		if login(account):
+		if spotify_oath_login(account):
 			spotify_client.transfer_playback( getChromecast(), force_play=False)
-	except Exception as e:
-		handle_error(e, login, retry)
-		return "RETRY\n"
+	except Exception as e:		
+		return handle_error(e, login, retry)
 	return "OK\n"
 
 @app.route('/off')
@@ -273,7 +269,7 @@ def now(retry = 3):
 		else:
 			return "NONE\n"
 	except Exception as e:
-		handle_error(e, now, retry)
+		handle_error(e, None, 0)
 		return "RETRY\n"
 		
 @app.route('/recent')
@@ -284,7 +280,7 @@ def recent(retry = 3):
 			result.append(item['track']['album']['external_urls']['spotify'])
 		return jsonify(result)
 	except Exception as e:
-		handle_error(e, recent, retry)
+		handle_error(e, None, 0)
 		return "RETRY\n"
 
 @app.route('/status')
@@ -321,13 +317,15 @@ def before_request():
 			_abort_ = True
 	except NameError:
 		_abort_ = True
-	
-	app.logger.debug(request.endpoint)
+
 	if _abort_ and request.endpoint not in ['login', 'power_off', 'reboot']:
-		abort(401)
+		if "default" in accounts:
+			login()
+		else:
+			abort(401)
 
 # ================================================================================================================ INITIALIZE
-def login(account):
+def spotify_oath_login(account):
 	global spotify_client, oath, username, password, cached_token
 	username = accounts[account]["username"]
 	password = accounts[account]["password"]
