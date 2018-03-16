@@ -176,7 +176,9 @@ def handle_error(e, callback, retry):
 	elif error.endswith("Could not connect to %s:8009"%chromecast_ip):
 		app.logger.info("Device offline?? ")
 		return "OFFLINE"
-	elif error.endswith("Already paused"):
+	elif error.endswith("Already paused"):		
+		if request.endpoint == 'toggle':
+			return play(retry)
 		app.logger.info("Already paused")
 		return "OK"
 	elif error.endswith("Not paused"):
@@ -213,6 +215,14 @@ def pause(retry = 3):
 		return handle_error(e, pause, retry)
 	return "OK\n"
 
+@app.route('/toggle')
+def toggle(retry = 3):
+	try:
+		spotify_client.pause_playback(chromecast_id)
+	except Exception as e:
+		return handle_error(e, pause, retry)
+	return "OK\n"
+	
 @app.route('/previous')
 def previous_track(retry = 3):
 	try:
@@ -307,7 +317,7 @@ def internal_server_error(e):
 	return "SERVER ERROR\n", 500
 
 @app.errorhandler(401)
-def internal_server_error(e):
+def credentials_error(e):
 	app.logger.error(e)
 	return "LOGIN FIRST\n", 401
 
