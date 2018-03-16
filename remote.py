@@ -220,7 +220,7 @@ def toggle(retry = 3):
 	try:
 		spotify_client.pause_playback(chromecast_id)
 	except Exception as e:
-		return handle_error(e, pause, retry)
+		return handle_error(e, toggle, retry)
 	return "OK\n"
 	
 @app.route('/previous')
