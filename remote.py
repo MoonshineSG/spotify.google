@@ -178,6 +178,8 @@ def handle_error(e, callback, retry):
 		return "OFFLINE"
 	elif error.endswith("Already paused"):		
 		if request.endpoint == 'toggle':
+			app.logger.debug("*** Retrying toggle [%s]"%retry)
+			retry -= 1
 			return play(retry)
 		app.logger.info("Already paused")
 		return "OK"
