@@ -22,7 +22,7 @@ chromecast_ip = "x.x.x.x"
 volume = 0.8
 
 #spotify_client credentials 
-accounts = {"":{"username":"", "password":""}}
+accounts = {"default":{"username":"", "password":""}}
 
 #Application
 client_id = "as_created_above"
