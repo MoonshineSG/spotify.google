@@ -105,7 +105,7 @@ config = curl http://127.0.0.1:9999/reboot
 end
 ```
 
-Where `SPOTIFY_*` buttons are as recorded in the `lircd.conf` file (`irrecord --disable-namespace -d /dev/lirc0  /etc/lirc/lircd.conf`)
+Where `SPOTIFY_*` buttons in the `lircd.conf` file recorded (`irrecord --disable-namespace -d /dev/lirc0  /etc/lirc/lircd.conf`) or random created codes and then taught to the remote (see https://github.com/MoonshineSG/remote.ir) 
 
 #### Remote control
 
