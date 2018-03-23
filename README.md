@@ -1,5 +1,9 @@
 ## Spotify Chromecast control using a Universal Remote 
 
+
+Chromecasts are not controllable using an IR remote control. This projects adds that function by using a raspberry pi with an IR sensor that receives the remote cotrol codes and converts them into http calls.
+
+
 #### Based on  https://developers.caffeina.com/reverse-engineering-spotify-and-chromecast-protocols-to-let-my-vocal-assistant-play-music-ada4767efa2
 
 #### Dependencies:
@@ -32,7 +36,7 @@ redirect_uri = "as_created_above"
 
 - give your account a short name and you is later in the `login` url. ex: `accounts = {"john":{"username":"john_spotify@gmail.com", "password":"73847893497389478389479374892398"}}` becomes `http://127.0.0.1:9999/login/john`
 
-> The system loggs in to the last used account or to account `"default"` (if present), if no user is logged in yet.
+> The system loggs in to the last used account or to account `"default"` (if present), if no user is logged in yet. (calling `http://127.0.0.1:9999/login` is equivalent to calling `http://127.0.0.1:9999/login/default` if a `default` user has been provided)
 
 - run it once from terminal and follow instructions to activate/authorize Spotify.
 
