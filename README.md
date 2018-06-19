@@ -1,4 +1,4 @@
-# ¡¡ Spotify introduced an additional captcha at login which causes this script to fail !! 
+# ¡¡ Spotify introduced an additional captcha at login which causes the LOGIN part of the script to fail !! 
 
 ## Spotify Chromecast control using a Universal Remote 
 
